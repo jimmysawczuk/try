@@ -35,5 +35,4 @@ func TestFatalTry(t *testing.T) {
 	err := Try(f, 5*time.Second, 100*time.Millisecond)
 	require.Error(t, err)
 	require.IsType(t, terminableErr{}, errors.Cause(err))
-	require.True(t, IsTerminableError(err))
 }
