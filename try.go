@@ -72,9 +72,3 @@ func Try(f func() error, timeout, interval time.Duration) error {
 func TerminableError(e error) error {
 	return terminableErr{e}
 }
-
-// IsTerminableError returns true if the provided error is of type terminableErr.
-func IsTerminableError(e error) bool {
-	_, ok := e.(terminableErr)
-	return ok
-}
