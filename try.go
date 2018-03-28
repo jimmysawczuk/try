@@ -1,6 +1,7 @@
 package try
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -14,6 +15,16 @@ var (
 	errTimedOut = errors.New("timed out")
 )
 
+// terminableErr represents an error that indicates that a try function shouldn't be
+// attempted again.
+type terminableErr struct {
+	error
+}
+
+func (t terminableErr) Error() string {
+	return fmt.Sprintf("terminable: %s", t.error.Error())
+}
+
 // Try runs the provided function until either the function runs succcessfully (returns a nil error)
 // or the timeout duration is exceeded. If the function doesn't run successfully, and there is still
 // time remaining before the timeout, it'll sleep for the interval provided before trying to run the
@@ -22,8 +33,9 @@ func Try(f func() error, timeout, interval time.Duration) error {
 	// This channel will fire after the timeout duration has elapsed.
 	timeoutCh := time.After(timeout)
 
-	// We'll fire on this channel when the function returns a nil error.
-	finishCh := make(chan bool)
+	// We'll fire on this channel when the function terminates by either returning a nil error
+	// or a terminable error.
+	finishCh := make(chan error)
 
 	// Run the function in a goroutine; if the function is successful, write to the channel and terminate the go routine, otherwise, log
 	// the error, sleep for an interval and try again.
@@ -32,8 +44,13 @@ func Try(f func() error, timeout, interval time.Duration) error {
 			start := time.Now()
 			err := f()
 			if err == nil {
-				finishCh <- true
+				finishCh <- nil
 				return
+			}
+
+			switch err.(type) {
+			case terminableErr:
+				finishCh <- err
 			}
 
 			log.Println(errors.Wrapf(err, "try (attempt took %s)", time.Now().Sub(start).Truncate(time.Millisecond)))
@@ -46,7 +63,18 @@ func Try(f func() error, timeout, interval time.Duration) error {
 	case <-timeoutCh:
 		return errTimedOut
 
-	case <-finishCh:
-		return nil
+	case err := <-finishCh:
+		return err
 	}
+}
+
+// TerminableError wraps a new TerminableError around the provided error.
+func TerminableError(e error) error {
+	return terminableErr{e}
+}
+
+// IsTerminableError returns true if the provided error is of type terminableErr.
+func IsTerminableError(e error) bool {
+	_, ok := e.(terminableErr)
+	return ok
 }

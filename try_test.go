@@ -26,3 +26,14 @@ func TestTry(t *testing.T) {
 	err = Try(f(50), 1*time.Second, 100*time.Millisecond)
 	require.Equal(t, errTimedOut, err)
 }
+
+func TestFatalTry(t *testing.T) {
+	f := func() error {
+		return TerminableError(errors.New("wut"))
+	}
+
+	err := Try(f, 5*time.Second, 100*time.Millisecond)
+	require.Error(t, err)
+	require.IsType(t, terminableErr{}, errors.Cause(err))
+	require.True(t, IsTerminableError(err))
+}
