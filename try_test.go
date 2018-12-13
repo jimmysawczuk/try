@@ -36,3 +36,17 @@ func TestFatalTry(t *testing.T) {
 	require.Error(t, err)
 	require.IsType(t, terminableErr{}, errors.Cause(err))
 }
+
+func TestFunctionActuallyStops(t *testing.T) {
+	i := 0
+	f := func() error {
+		i++
+		return errors.New("whoops")
+	}
+
+	err := Try(f, 1*time.Second, 100*time.Millisecond)
+	currentI := i
+	require.Error(t, err)
+	time.Sleep(1 * time.Second)
+	require.Equal(t, currentI, i)
+}

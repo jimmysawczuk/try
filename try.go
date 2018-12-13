@@ -37,10 +37,20 @@ func Try(f func() error, timeout, interval time.Duration) error {
 	// or a terminable error.
 	finishCh := make(chan error)
 
+	// We'll fire this channel to make sure the function actually stops running when we time out.
+	stopCh := make(chan bool)
+
 	// Run the function in a goroutine; if the function is successful, write to the channel and terminate the go routine, otherwise, log
 	// the error, sleep for an interval and try again.
 	go func() {
 		for {
+			select {
+			case <-stopCh:
+				return
+			default:
+				// continue out of select
+			}
+
 			start := time.Now()
 			err := f()
 			if err == nil {
@@ -48,12 +58,14 @@ func Try(f func() error, timeout, interval time.Duration) error {
 				return
 			}
 
+			log.Println(errors.Wrapf(err, "try (attempt took %s)", time.Now().Sub(start).Truncate(time.Millisecond)))
+
 			switch err.(type) {
 			case terminableErr:
 				finishCh <- err
+				return
 			}
 
-			log.Println(errors.Wrapf(err, "try (attempt took %s)", time.Now().Sub(start).Truncate(time.Millisecond)))
 			time.Sleep(interval)
 		}
 	}()
@@ -61,6 +73,7 @@ func Try(f func() error, timeout, interval time.Duration) error {
 	// Whichever channel fires first determines whether or not the function ran successfully within the timeout duration.
 	select {
 	case <-timeoutCh:
+		stopCh <- true
 		return errTimedOut
 
 	case err := <-finishCh:
