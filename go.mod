@@ -1,3 +1,4 @@
+// Deprecated: this package is no longer maintained.
 module github.com/jimmysawczuk/try
 
 go 1.12
