@@ -1,4 +1,3 @@
-// Deprecated: this package is no longer maintained.
 package try
 
 import (
